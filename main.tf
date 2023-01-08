@@ -5,9 +5,7 @@ provider "aws" {
 resource "aws_instance" "ec2_from_terraform" {
   ami               = "ami-051a81c2bd3e755db"
   instance_type     = "t2.micro"
-  availability_zone = "ap-southeast-2a"
+  availability_zone = var.availability_zone
 
-  tags = {
-    Name = "EC2ServerFromTerraform"
-  }
+  tags = var.ec2_tags
 }
