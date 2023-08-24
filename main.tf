@@ -2,66 +2,64 @@ provider "aws" {
   region = "ap-southeast-2"
 }
 
-module "iam_role" {
-  source = "./modules/aws-iam"
-}
-
-resource "aws_ebs_volume" "ec2_ebs_tf_volume" {
-  availability_zone = var.availability_zone
-  size              = 2
-  encrypted         = false
-  type              = "gp2"
-
-  tags = {
-    Name = "EC2_EBS_TF_Volume"
-  }
-}
-
-resource "aws_volume_attachment" "ec2_ebs_tf_attachment" {
-  device_name = "/dev/sdi"
-  volume_id   = aws_ebs_volume.ec2_ebs_tf_volume.id
-  instance_id = aws_instance.ec2_from_terraform.id
-}
-
-resource "aws_security_group" "ec2_tf_security_group" {
-  name        = "ec2_tf_security_group"
-  description = "THe security group for the ec2 instance"
+resource "aws_security_group" "ssh_security" {
+  name        = "ssh security"
+  description = "security for ssh usage"
 
   ingress {
-    protocol    = "tcp"
-    from_port   = 80
-    to_port     = 80
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    protocol    = "tcp"
+    description = "Inbound rules"
     from_port   = 22
     to_port     = 22
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
-    protocol    = "-1"
+    description = "Outbound rules"
     from_port   = 0
     to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "ssh security"
+  }
+}
+
+resource "aws_security_group" "web_security" {
+  name        = "web security"
+  description = "security for web usage"
+
+  ingress {
+    description = "Inbound rules"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "Outbound rules"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "web security"
   }
 }
 
 resource "aws_instance" "ec2_from_terraform" {
-  ami                    = "ami-051a81c2bd3e755db"
-  instance_type          = "t2.micro"
-  availability_zone      = var.availability_zone
-  iam_instance_profile   = module.iam_role.ec2_tf_profile_id
-  vpc_security_group_ids = [aws_security_group.ec2_tf_security_group.id]
+  ami                    = data.aws_ami.ec2_ami.id
+  instance_type          = var.ec2_instance_type
+  user_data              = file("${path.module}/start-up.sh")
+  key_name               = var.key_pair
+  vpc_security_group_ids = [aws_security_group.ssh_security.id, aws_security_group.web_security.id]
 
-  ebs_block_device {
-    device_name           = "/dev/sdk"
-    volume_size           = 2
-    encrypted             = true
-    delete_on_termination = true
+  tags = {
+    "Name" = "EC2 practice"
   }
-
-  tags = var.ec2_tags
 }
